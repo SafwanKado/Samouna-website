@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["customer", "owner", "driver", "admin"] },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "bakeries": {
+      "title": "Bakery",
+      "description": "Bakery details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "address": { "type": "string" },
+        "rating": { "type": "number" },
+        "deliveryTime": { "type": "string" },
+        "deliveryFee": { "type": "number" },
+        "active": { "type": "boolean" },
+        "imageUrl": { "type": "string" },
+        "openTime": { "type": "string", "description": "e.g. 08:00" },
+        "closeTime": { "type": "string", "description": "e.g. 22:00" }
+      },
+      "required": ["ownerId", "name", "active"]
+    },
+    "products": {
+      "title": "Product",
+      "description": "Bakery products",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bakeryId": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "inStock": { "type": "boolean" },
+        "description": { "type": "string" }
+      },
+      "required": ["bakeryId", "name", "price"]
+    },
+    "orders": {
+      "title": "Order",
+      "description": "Customer orders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "bakeryId": { "type": "string" },
+        "driverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "preparing", "ready", "picked_up", "on_the_way", "delivered", "cancelled"] },
+        "totalPrice": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "bakeryId", "status", "totalPrice"]
+    },
+    "orderItems": {
+      "title": "OrderItem",
+      "description": "Items within an order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "productId": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "unitPrice": { "type": "number" }
+      },
+      "required": ["orderId", "productId", "quantity", "unitPrice"]
+    },
+    "ratings": {
+      "title": "Rating",
+      "description": "Customer ratings for bakeries",
+      "type": "object",
+      "properties": {
+        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+        "customerId": { "type": "string" },
+        "orderId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["rating", "customerId", "orderId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "users", "description": "User profiles" },
+    "/bakeries/{bakeryId}": { "schema": "bakeries", "description": "Bakery listings" },
+    "/bakeries/{bakeryId}/ratings/{ratingId}": { "schema": "ratings", "description": "Bakery customer reviews" },
+    "/products/{productId}": { "schema": "products", "description": "Product listings" },
+    "/orders/{orderId}": { "schema": "orders", "description": "Order records" },
+    "/orderItems/{orderItemId}": { "schema": "orderItems", "description": "Individual items in orders" }
+  }
+}

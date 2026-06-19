@@ -1,0 +1,196 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - name: string (optional)
+//   - phone: string (optional)
+//   - email: string (required)
+//   - role: string (required, enum: customer, owner, driver, admin)
+//   - active: boolean (optional)
+//   - createdAt: string (optional)
+//
+// Collection: bakeries
+// Document ID: {bakeryId}
+// Fields:
+//   - id: string (optional)
+//   - ownerId: string (required)
+//   - name: string (required)
+//   - description: string (optional)
+//   - address: string (optional)
+//   - rating: number (optional)
+//   - deliveryTime: string (optional)
+//   - deliveryFee: number (optional)
+//   - active: boolean (required)
+//   - imageUrl: string (optional)
+//
+// Collection: products
+// Document ID: {productId}
+// Fields:
+//   - id: string (optional)
+//   - bakeryId: string (required)
+//   - name: string (required)
+//   - price: number (required)
+//   - imageUrl: string (optional)
+//   - inStock: boolean (optional)
+//   - description: string (optional)
+//
+// Collection: orders
+// Document ID: {orderId}
+// Fields:
+//   - id: string (optional)
+//   - customerId: string (required)
+//   - bakeryId: string (required)
+//   - driverId: string (optional)
+//   - status: string (required, enum: pending, confirmed, preparing, ready, picked_up, on_the_way, delivered, cancelled)
+//   - totalPrice: number (required)
+//   - createdAt: string (required)
+//
+// Collection: orderItems
+// Document ID: {orderItemId}
+// Fields:
+//   - id: string (optional)
+//   - orderId: string (required)
+//   - productId: string (required)
+//   - quantity: int (required)
+//   - unitPrice: number (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         (request.auth.token.email == "safwankado13@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isBakeryOwner(bakeryId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/bakeries/$(bakeryId)) && 
+             get(/databases/$(database)/documents/bakeries/$(bakeryId)).data.ownerId == request.auth.uid;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.size() > 3 && email.size() < 100;
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.size() >= 10 && dateStr.size() <= 40;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             data.role in ['customer', 'owner', 'driver', 'admin'] &&
+             (!('name' in data) || (data.name is string && data.name.size() < 100)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 20));
+    }
+
+    function isValidBakery(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'active']) &&
+             data.ownerId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() < 500)) &&
+             data.active is bool;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['bakeryId', 'name', 'price']) &&
+             data.bakeryId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.price is number && data.price >= 0;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['customerId', 'bakeryId', 'status', 'totalPrice', 'createdAt']) &&
+             data.customerId == request.auth.uid &&
+             data.status in ['pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'on_the_way', 'delivered', 'cancelled'] &&
+             data.totalPrice is number && data.totalPrice >= 0 &&
+             isValidDateString(data.createdAt);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isAdmin());
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /bakeries/{bakeryId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && hasRole('owner') && isValidBakery(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(resource.data.ownerId) || isAdmin()) && isValidBakery(request.resource.data);
+      allow delete: if isAuthenticated() && (isOwner(resource.data.ownerId) || isAdmin());
+
+      match /ratings/{ratingId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && request.auth.uid == request.resource.data.customerId;
+        allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.customerId);
+      }
+    }
+
+    match /test/{documentId} {
+      allow read: if true;
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isBakeryOwner(request.resource.data.bakeryId) && isValidProduct(request.resource.data);
+      allow update: if isAuthenticated() && (isBakeryOwner(resource.data.bakeryId) || isAdmin()) && isValidProduct(request.resource.data);
+      allow delete: if isAuthenticated() && (isBakeryOwner(resource.data.bakeryId) || isAdmin());
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.customerId) || isOwner(resource.data.driverId) || isBakeryOwner(resource.data.bakeryId) || isAdmin());
+      allow create: if isAuthenticated()
+        && request.auth.token.email_verified == true
+        && isValidOrder(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (isOwner(resource.data.customerId) && request.resource.data.status == 'cancelled' && resource.data.status == 'pending') ||
+        (isBakeryOwner(resource.data.bakeryId) && request.resource.data.status in ['confirmed', 'preparing', 'ready', 'cancelled']) ||
+        (hasRole('driver') && (resource.data.driverId == null || isOwner(resource.data.driverId)) && request.resource.data.status in ['picked_up', 'on_the_way', 'delivered']) ||
+        isAdmin()
+      );
+    }
+
+    match /orderItems/{orderItemId} {
+      allow read: if isAuthenticated() && (isOwner(get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.customerId) || isBakeryOwner(get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.bakeryId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.customerId);
+      allow update, delete: if isAdmin();
+    }
+  }
+}
