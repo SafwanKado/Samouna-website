@@ -9,7 +9,7 @@
         "name": { "type": "string" },
         "phone": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "role": { "type": "string", "enum": ["customer", "owner", "driver", "admin"] },
+        "role": { "type": "string", "enum": ["customer", "owner", "admin"] },
         "active": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       },

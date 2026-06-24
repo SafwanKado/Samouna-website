@@ -39,19 +39,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     let unsubscribeProfile: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const isGoogleUser = firebaseUser.providerData.some(p => p.providerId === 'google.com');
-        if (!firebaseUser.emailVerified && !isGoogleUser) {
-          await firebaseSignOut(auth);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          showToast('Please verify your email before logging in.', 'error');
-          navigate('/auth');
-          return;
-        }
-      }
-
       setUser(firebaseUser);
       
       if (unsubscribeProfile) {
@@ -74,19 +61,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             }
             setProfile(data);
           } else {
-            // Default profile if not exists (should be handled by registration)
-            const newProfile: UserProfile = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              name: firebaseUser.displayName || 'User',
-              phone: '',
-              role: 'customer',
-              favorites: [],
-              active: true,
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(docRef, newProfile);
-            // setProfile will be called by onSnapshot
+            setProfile(null);
           }
           setLoading(false);
         });

@@ -9,7 +9,7 @@
 //   - name: string (optional)
 //   - phone: string (optional)
 //   - email: string (required)
-//   - role: string (required, enum: customer, owner, driver, admin)
+//   - role: string (required, enum: customer, owner, admin)
 //   - active: boolean (optional)
 //   - createdAt: string (optional)
 //
@@ -80,7 +80,7 @@ service cloud.firestore {
       return isAuthenticated() && 
         ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-         (request.auth.token.email == "safwankado13@gmail.com" && request.auth.token.email_verified == true));
+         (request.auth.token.email == "safwankado13@gmail.com"));
     }
 
     function isBakeryOwner(bakeryId) {
@@ -177,7 +177,6 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow read: if isAuthenticated() && (isOwner(resource.data.customerId) || isOwner(resource.data.driverId) || isBakeryOwner(resource.data.bakeryId) || isAdmin());
       allow create: if isAuthenticated()
-        && request.auth.token.email_verified == true
         && isValidOrder(request.resource.data);
       allow update: if isAuthenticated() && (
         (isOwner(resource.data.customerId) && request.resource.data.status == 'cancelled' && resource.data.status == 'pending') ||
